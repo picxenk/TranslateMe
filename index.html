@@ -1,0 +1,607 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TranslateMe</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+      background: #fff;
+      color: #202124;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      padding: 24px 24px 16px;
+      border-bottom: 1px solid #e0e0e0;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    header h1 {
+      font-size: 20px;
+      font-weight: 500;
+    }
+
+    .header-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+      text-align: right;
+    }
+
+    .header-right p {
+      font-size: 13px;
+      color: #5f6368;
+    }
+
+    main {
+      flex: 1;
+      width: 100%;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    select {
+      padding: 8px 12px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      background: #fff;
+      font-size: 14px;
+      color: #202124;
+      cursor: pointer;
+      min-width: 140px;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #1a73e8;
+    }
+
+    .arrow {
+      color: #5f6368;
+      font-size: 16px;
+    }
+
+    #swapBtn {
+      padding: 8px 14px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      background: #fff;
+      font-size: 16px;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    #swapBtn:hover:not(:disabled) {
+      background: #f1f3f4;
+    }
+
+    #swapBtn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .panels {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .panel {
+      border: 1px solid #dadce0;
+      border-radius: 12px;
+      min-height: 220px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    textarea, .result {
+      flex: 1;
+      width: 100%;
+      padding: 16px;
+      font-size: 16px;
+      line-height: 1.6;
+      border: none;
+      resize: vertical;
+      background: transparent;
+    }
+
+    textarea {
+      font-family: inherit;
+      color: #202124;
+      min-height: 180px;
+    }
+
+    textarea:focus {
+      outline: none;
+    }
+
+    textarea::placeholder {
+      color: #9aa0a6;
+    }
+
+    .result {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .result .placeholder {
+      color: #9aa0a6;
+    }
+
+    .result .translating {
+      color: #5f6368;
+    }
+
+    .result .error {
+      color: #d93025;
+      white-space: pre-wrap;
+    }
+
+    .result .error-detail {
+      font-size: 12px;
+      color: #5f6368;
+      white-space: pre-wrap;
+      background: #f8f9fa;
+      border: 1px solid #e0e0e0;
+      border-radius: 8px;
+      padding: 10px 12px;
+    }
+
+    .panel-footer {
+      padding: 8px 16px;
+      font-size: 12px;
+      color: #9aa0a6;
+      border-top: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .action-row {
+      display: flex;
+      justify-content: center;
+    }
+
+    #translateBtn {
+      padding: 10px 32px;
+      font-size: 15px;
+      border: none;
+      border-radius: 8px;
+      background: #1a73e8;
+      color: #fff;
+      cursor: pointer;
+    }
+
+    #translateBtn:hover:not(:disabled) {
+      background: #1765cc;
+    }
+
+    #translateBtn:disabled {
+      background: #a8c7fa;
+      cursor: not-allowed;
+    }
+
+    .status-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      color: #5f6368;
+    }
+
+    .dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #d93025;
+      flex-shrink: 0;
+    }
+
+    .dot.connected {
+      background: #188038;
+    }
+
+    .model-status {
+      font-size: 13px;
+      color: #5f6368;
+    }
+
+    .model-status.warning {
+      color: #e37400;
+    }
+
+    .cors-help {
+      display: none;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 16px;
+      font-size: 13px;
+      color: #5f6368;
+      line-height: 1.7;
+      background: #f8f9fa;
+    }
+
+    .cors-help.visible {
+      display: block;
+    }
+
+    .cors-help h2 {
+      font-size: 14px;
+      font-weight: 500;
+      color: #202124;
+      margin-bottom: 8px;
+    }
+
+    .cors-help code {
+      display: block;
+      background: #fff;
+      border: 1px solid #dadce0;
+      border-radius: 6px;
+      padding: 6px 10px;
+      margin: 6px 0;
+      font-family: "SF Mono", Menlo, Consolas, monospace;
+      font-size: 12px;
+      overflow-x: auto;
+    }
+
+    @media (max-width: 640px) {
+      header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .header-right {
+        align-items: flex-start;
+        text-align: left;
+      }
+
+      .panels {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        justify-content: center;
+      }
+
+      select {
+        min-width: 120px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>TranslateMe</h1>
+    <div class="header-right">
+      <p>Local translation powered by Ollama</p>
+      <div class="status-row">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">Checking Ollama...</span>
+        <span class="model-status" id="modelStatus"></span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="controls">
+      <select id="sourceLang" aria-label="Source language"></select>
+      <span class="arrow">&#8594;</span>
+      <select id="targetLang" aria-label="Target language"></select>
+      <button id="swapBtn" type="button" title="Swap languages">&#8646;</button>
+    </div>
+
+    <div class="panels">
+      <div class="panel">
+        <textarea id="sourceText" placeholder="Enter text to translate"></textarea>
+        <div class="panel-footer">
+          <span id="charCount">0</span>
+          <span>chars</span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="result" id="resultArea">
+          <span class="placeholder">Translation</span>
+        </div>
+        <div class="panel-footer">
+          <span></span>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button id="translateBtn" type="button" disabled>Translate</button>
+    </div>
+
+    <div class="cors-help" id="corsHelp">
+      <h2>Cannot connect to Ollama</h2>
+      If Ollama is running but the browser reports a CORS error,
+      allow this page to access Ollama.
+      <strong>macOS</strong> — run in Terminal, then quit and restart Ollama:
+      <code>launchctl setenv OLLAMA_ORIGINS "*"</code>
+      <strong>Windows</strong> — set the environment variable, then restart Ollama:
+      <code>OLLAMA_ORIGINS=*</code>
+      Or serve this file from localhost instead of opening it directly:
+      <code>python3 -m http.server 8000</code>
+      then open <code>http://localhost:8000</code>
+    </div>
+  </main>
+
+  <script>
+    "use strict";
+
+    const OLLAMA_URL = "http://localhost:11434";
+    const MODEL = "translategemma:4b";
+    let activeModel = MODEL;
+
+    const LANGUAGES = {
+      auto: "Auto Detect",
+      en: "English",
+      ko: "Korean",
+      ja: "Japanese",
+      zh: "Chinese",
+      fr: "French",
+      de: "German",
+      es: "Spanish"
+    };
+
+    const PROMPT_TEMPLATE =
+      'You are a professional {SOURCE_LANG} ({SOURCE_CODE}) to {TARGET_LANG} ({TARGET_CODE}) translator. ' +
+      'Your goal is to accurately convey the meaning and nuances of the original {SOURCE_LANG} text ' +
+      'while adhering to {TARGET_LANG} grammar, vocabulary, and cultural sensitivities.\n\n' +
+      'Produce only the {TARGET_LANG} translation, without any additional explanations or commentary. ' +
+      'Please translate the following {SOURCE_LANG} text into {TARGET_LANG}:\n\n{TEXT}';
+
+    const sourceLangSelect = document.getElementById("sourceLang");
+    const targetLangSelect = document.getElementById("targetLang");
+    const swapBtn = document.getElementById("swapBtn");
+    const sourceText = document.getElementById("sourceText");
+    const charCount = document.getElementById("charCount");
+    const resultArea = document.getElementById("resultArea");
+    const translateBtn = document.getElementById("translateBtn");
+    const statusDot = document.getElementById("statusDot");
+    const statusText = document.getElementById("statusText");
+    const modelStatus = document.getElementById("modelStatus");
+    const corsHelp = document.getElementById("corsHelp");
+
+    let translating = false;
+
+    function initLanguageSelects() {
+      Object.keys(LANGUAGES).forEach((code) => {
+        const label = code === "auto"
+          ? LANGUAGES[code]
+          : LANGUAGES[code] + " (" + code + ")";
+        sourceLangSelect.add(new Option(label, code));
+        if (code !== "auto") {
+          targetLangSelect.add(new Option(label, code));
+        }
+      });
+      sourceLangSelect.value = "en";
+      targetLangSelect.value = "ko";
+    }
+
+    function updateCharCount() {
+      charCount.textContent = String(sourceText.value.length);
+    }
+
+    function updateTranslateButton() {
+      translateBtn.disabled = translating || sourceText.value.trim() === "";
+    }
+
+    function updateSwapButton() {
+      swapBtn.disabled = sourceLangSelect.value === "auto";
+    }
+
+    function showResult(content) {
+      resultArea.innerHTML = "";
+      const span = document.createElement("span");
+      span.textContent = content;
+      resultArea.appendChild(span);
+    }
+
+    function showTranslating() {
+      resultArea.innerHTML = "";
+      const span = document.createElement("span");
+      span.className = "translating";
+      span.textContent = "Translating...";
+      resultArea.appendChild(span);
+    }
+
+    function showError(message, detail) {
+      resultArea.innerHTML = "";
+      const span = document.createElement("span");
+      span.className = "error";
+      span.textContent = message;
+      resultArea.appendChild(span);
+      if (detail) {
+        const detailEl = document.createElement("div");
+        detailEl.className = "error-detail";
+        detailEl.textContent = detail;
+        resultArea.appendChild(detailEl);
+      }
+    }
+
+    function buildPrompt(text) {
+      const sourceCode = sourceLangSelect.value;
+      const targetCode = targetLangSelect.value;
+      const sourceLang = sourceCode === "auto"
+        ? "the source language detected from the input"
+        : LANGUAGES[sourceCode];
+      return PROMPT_TEMPLATE
+        .replace(/{SOURCE_LANG}/g, sourceLang)
+        .replace(/{SOURCE_CODE}/g, sourceCode)
+        .replace(/{TARGET_LANG}/g, LANGUAGES[targetCode])
+        .replace(/{TARGET_CODE}/g, targetCode)
+        .replace(/{TEXT}/g, text);
+    }
+
+    async function translate() {
+      const text = sourceText.value.trim();
+      if (!text || translating) return;
+      if (sourceLangSelect.value === targetLangSelect.value) {
+        showError("Source and target languages are the same.");
+        return;
+      }
+
+      translating = true;
+      updateTranslateButton();
+      showTranslating();
+
+      try {
+        const response = await fetch(OLLAMA_URL + "/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: activeModel,
+            messages: [{ role: "user", content: buildPrompt(text) }],
+            stream: false
+          })
+        });
+
+        if (!response.ok) {
+          const body = await response.text();
+          if (response.status === 404 || /model\s+not\s+found/i.test(body)) {
+            showError(
+              "TranslateGemma is not available.",
+              "Run:\nollama pull " + activeModel
+            );
+          } else {
+            showError("Translation failed.", body || ("HTTP " + response.status));
+          }
+          return;
+        }
+
+        const data = await response.json();
+        const content = data && data.message && data.message.content;
+        if (typeof content === "string" && content.trim() !== "") {
+          showResult(content.trim());
+        } else {
+          showError("Translation failed.", "Empty response from model.");
+        }
+      } catch (err) {
+        corsHelp.classList.add("visible");
+        if (location.protocol === "file:") {
+          showError(
+            "Your browser cannot access Ollama because of CORS settings.\n" +
+            "See the setup instructions below.",
+            "This page was opened via file://. Ollama blocks cross-origin " +
+            "requests from file:// pages unless OLLAMA_ORIGINS allows it."
+          );
+        } else {
+          showError(
+            "Ollama is not running.\nPlease start Ollama and try again.\n\n" +
+            "If Ollama is running, this may be a CORS issue — see the instructions below.",
+            String(err)
+          );
+        }
+      } finally {
+        translating = false;
+        updateTranslateButton();
+      }
+    }
+
+    async function checkConnection() {
+      statusText.textContent = "Checking Ollama...";
+      try {
+        const response = await fetch(OLLAMA_URL + "/api/tags");
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const data = await response.json();
+        statusDot.classList.add("connected");
+        statusText.textContent = "Ollama connected";
+        const names = Array.isArray(data.models)
+          ? data.models.map((m) => m.name).filter(Boolean)
+          : [];
+        const exact = names.find((n) => n === MODEL);
+        const variant = exact ||
+          names.find((n) => n.split(":")[0] === MODEL.split(":")[0]);
+        if (variant) {
+          activeModel = variant;
+          modelStatus.textContent = "| " + variant + " ready";
+        } else {
+          modelStatus.classList.add("warning");
+          modelStatus.textContent = "| " + MODEL + " not found — run: ollama pull " + MODEL;
+        }
+      } catch {
+        statusDot.classList.remove("connected");
+        statusText.textContent = "Ollama unavailable";
+        modelStatus.classList.add("warning");
+        modelStatus.textContent = "| Start Ollama, or see the CORS instructions below";
+        corsHelp.classList.add("visible");
+      }
+    }
+
+    function swap() {
+      if (sourceLangSelect.value === "auto") return;
+      const previousResult = resultArea.querySelector("span:not(.placeholder):not(.translating):not(.error)");
+      const previousText = previousResult ? previousResult.textContent : "";
+
+      const lang = sourceLangSelect.value;
+      sourceLangSelect.value = targetLangSelect.value;
+      targetLangSelect.value = lang;
+
+      sourceText.value = previousText;
+      resultArea.innerHTML = "";
+      resultArea.appendChild(Object.assign(document.createElement("span"), {
+        className: "placeholder",
+        textContent: "Translation"
+      }));
+
+      updateCharCount();
+      updateTranslateButton();
+      updateSwapButton();
+    }
+
+    sourceText.addEventListener("input", () => {
+      updateCharCount();
+      updateTranslateButton();
+    });
+
+    sourceText.addEventListener("keydown", (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+        e.preventDefault();
+        translate();
+      }
+    });
+
+    translateBtn.addEventListener("click", translate);
+    swapBtn.addEventListener("click", swap);
+    sourceLangSelect.addEventListener("change", updateSwapButton);
+
+    initLanguageSelects();
+    updateCharCount();
+    updateSwapButton();
+    checkConnection();
+  </script>
+</body>
+</html>
