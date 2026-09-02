@@ -276,6 +276,19 @@
       overflow-x: auto;
     }
 
+    .cors-help .cors-cause {
+      color: #202124;
+      white-space: pre-wrap;
+      margin-bottom: 12px;
+    }
+
+    .cors-help .cors-env {
+      font-size: 12px;
+      color: #9aa0a6;
+      margin-bottom: 12px;
+      word-break: break-all;
+    }
+
     @media (max-width: 640px) {
       header {
         flex-direction: column;
@@ -345,13 +358,13 @@
     </div>
 
     <div class="cors-help" id="corsHelp">
-      <h2>Cannot connect to Ollama</h2>
-      If Ollama is running but the browser reports a CORS error,
-      allow this page to access Ollama.
+      <h2 id="corsHelpTitle">Cannot connect to Ollama</h2>
+      <p class="cors-cause" id="corsCause"></p>
+      <p class="cors-env" id="corsEnv"></p>
       <strong>macOS</strong> — run in Terminal, then quit and restart Ollama:
       <code>launchctl setenv OLLAMA_ORIGINS "*"</code>
-      <strong>Windows</strong> — set the environment variable, then restart Ollama:
-      <code>OLLAMA_ORIGINS=*</code>
+      <strong>Windows</strong> — run in Command Prompt, then quit and restart Ollama:
+      <code>setx OLLAMA_ORIGINS "*"</code>
       Or serve this file from localhost instead of opening it directly:
       <code>python3 -m http.server 8000</code>
       then open <code>http://localhost:8000</code>
@@ -394,6 +407,9 @@
     const statusText = document.getElementById("statusText");
     const modelStatus = document.getElementById("modelStatus");
     const corsHelp = document.getElementById("corsHelp");
+    const corsHelpTitle = document.getElementById("corsHelpTitle");
+    const corsCause = document.getElementById("corsCause");
+    const corsEnv = document.getElementById("corsEnv");
 
     let translating = false;
 
@@ -450,6 +466,119 @@
         detailEl.textContent = detail;
         resultArea.appendChild(detailEl);
       }
+    }
+
+    function isLocalHostname(hostname) {
+      return ["localhost", "127.0.0.1", "0.0.0.0", "[::1]", "::1"].indexOf(hostname) !== -1;
+    }
+
+    function pageOriginLabel() {
+      return location.protocol === "file:"
+        ? "file:// (opened directly from disk)"
+        : location.origin;
+    }
+
+    async function probeOllama() {
+      try {
+        await fetch(OLLAMA_URL + "/api/tags", { mode: "no-cors", cache: "no-store" });
+        return true;
+      } catch {
+        return false;
+      }
+    }
+
+    async function diagnoseConnectionError() {
+      const apiUrl = new URL(OLLAMA_URL);
+
+      if (location.protocol === "https:" && apiUrl.protocol === "http:" &&
+          !isLocalHostname(apiUrl.hostname)) {
+        return {
+          kind: "mixed-content",
+          panel: true,
+          statusText: "Blocked: mixed content",
+          modelHint: "See the instructions below",
+          title: "Request blocked by the browser (mixed content).",
+          cause: "This page is loaded over HTTPS, but OLLAMA_URL points to plain HTTP (" +
+            OLLAMA_URL + "). Browsers block HTTPS pages from calling plain-HTTP APIs. " +
+            "Serve this page over HTTP, or make Ollama reachable over HTTPS."
+        };
+      }
+
+      const running = await probeOllama();
+
+      if (!running) {
+        if (location.protocol === "file:") {
+          return {
+            kind: "not-running",
+            panel: true,
+            statusText: "Cannot reach Ollama",
+            modelHint: "Start Ollama — if it persists, see the help below",
+            title: "Cannot reach Ollama from this page.",
+            cause: "Nothing responded at " + OLLAMA_URL + ". Either Ollama is not running, " +
+              "or this browser blocks requests from pages opened via file://.\n\n" +
+              "1. Start Ollama and try again.\n" +
+              "2. If the error persists, serve this page from localhost instead (see below)."
+          };
+        }
+        return {
+          kind: "not-running",
+          panel: false,
+          statusText: "Ollama is not running",
+          modelHint: "Start Ollama, then reload this page",
+          title: "Ollama is not running.",
+          cause: "Nothing responded at " + OLLAMA_URL + ". Start Ollama (launch the Ollama " +
+            "app, or run `ollama serve` in a terminal) and try again."
+        };
+      }
+
+      const corsTitle = "Your browser cannot access Ollama because of CORS settings.";
+
+      if (location.protocol === "file:") {
+        return {
+          kind: "cors-file",
+          panel: true,
+          statusText: "CORS blocked",
+          modelHint: "See the CORS instructions below",
+          title: corsTitle,
+          cause: "Ollama is running, but this page was opened directly from disk (file://), " +
+            'so its origin is "null" — Ollama does not allow that origin by default.\n\n' +
+            "Allow this page via OLLAMA_ORIGINS, or serve it from localhost — " +
+            "see the commands below."
+        };
+      }
+
+      if (!isLocalHostname(location.hostname)) {
+        return {
+          kind: "cors-origin",
+          panel: true,
+          statusText: "CORS blocked",
+          modelHint: "See the CORS instructions below",
+          title: corsTitle,
+          cause: "Ollama is running, but this page is served from " + location.origin + ". " +
+            "By default Ollama only allows pages served from localhost / 127.0.0.1.\n\n" +
+            'Allow this exact origin, e.g. OLLAMA_ORIGINS="' + location.origin + '" — ' +
+            "see the commands below."
+        };
+      }
+
+      return {
+        kind: "cors",
+        panel: true,
+        statusText: "CORS blocked",
+        modelHint: "See the CORS instructions below",
+        title: corsTitle,
+        cause: "Ollama is running and reachable, but the browser still blocked the request. " +
+          "This usually means Ollama's OLLAMA_ORIGINS setting does not include this page's " +
+          "origin (" + location.origin + ").\n\nSee the commands below."
+      };
+    }
+
+    function showCorsHelp(diag) {
+      corsHelpTitle.textContent = diag.title;
+      corsCause.textContent = diag.cause;
+      corsEnv.textContent =
+        "This page: " + pageOriginLabel() + "   ·   Ollama API: " + OLLAMA_URL;
+      corsHelp.classList.add("visible");
     }
 
     function buildPrompt(text) {
@@ -510,21 +639,15 @@
           showError("Translation failed.", "Empty response from model.");
         }
       } catch (err) {
-        corsHelp.classList.add("visible");
-        if (location.protocol === "file:") {
-          showError(
-            "Your browser cannot access Ollama because of CORS settings.\n" +
-            "See the setup instructions below.",
-            "This page was opened via file://. Ollama blocks cross-origin " +
-            "requests from file:// pages unless OLLAMA_ORIGINS allows it."
-          );
-        } else {
-          showError(
-            "Ollama is not running.\nPlease start Ollama and try again.\n\n" +
-            "If Ollama is running, this may be a CORS issue — see the instructions below.",
-            String(err)
-          );
+        const diag = await diagnoseConnectionError();
+        let detail = diag.cause;
+        if (err) {
+          detail += "\n\nBrowser error: " + String(err);
         }
+        if (diag.panel) {
+          showCorsHelp(diag);
+        }
+        showError(diag.title, detail);
       } finally {
         translating = false;
         updateTranslateButton();
@@ -554,10 +677,13 @@
         }
       } catch {
         statusDot.classList.remove("connected");
-        statusText.textContent = "Ollama unavailable";
+        const diag = await diagnoseConnectionError();
+        statusText.textContent = diag.statusText;
         modelStatus.classList.add("warning");
-        modelStatus.textContent = "| Start Ollama, or see the CORS instructions below";
-        corsHelp.classList.add("visible");
+        modelStatus.textContent = "| " + diag.modelHint;
+        if (diag.panel) {
+          showCorsHelp(diag);
+        }
       }
     }
 

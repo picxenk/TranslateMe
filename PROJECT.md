@@ -502,6 +502,17 @@ Then restart Ollama.
 3. Browser CORS access is blocked
 ```
 
+구현 상태:
+
+- 연결 실패 시 `mode: "no-cors"` 요청으로 Ollama 서버 자체의 실행 여부를 먼저 확인한다. (`no-cors` 요청은 CORS 검사를 통과하므로, 이 요청의 성공/실패로 "Ollama 미실행"과 "CORS 차단"을 구분할 수 있다.)
+- Ollama가 실행 중이면 CORS 원인으로 판정하고, 다음 경우를 각각 구분해 안내한다.
+  - 페이지를 `file://`로 직접 연 경우 (origin이 `null`)
+  - localhost가 아닌 origin(예: LAN IP)에서 페이지를 서빙한 경우 — 실제 origin을 포함한 `OLLAMA_ORIGINS` 예시를 함께 표시
+  - localhost origin인데도 차단된 경우 (커스텀 `OLLAMA_ORIGINS` 등)
+  - HTTPS 페이지에서 plain-HTTP Ollama URL을 호출한 경우 (mixed content)
+- Ollama가 실행 중이 아니면 "Ollama is not running." 메시지와 시작 방법을 안내한다. `file://`로 열린 페이지에서는 브라우저가 요청 자체를 차단했을 가능성을 함께 안내한다.
+- 도움말 영역 상단에 현재 페이지 origin과 Ollama URL을 표시해 원인 파악을 돕는다.
+
 ---
 
 ## 14. Error Handling
@@ -531,9 +542,9 @@ ollama pull translategemma:4b
 
 ```text
 Your browser cannot access Ollama because of CORS settings.
-
-See the Windows/macOS setup instructions below.
 ```
+
+원인(`file://` 여부, 비localhost origin, mixed content)에 따라 구체적인 상세 메시지를 함께 표시한다.
 
 ### 기타 API 오류
 
